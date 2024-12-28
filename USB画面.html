@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>カメラ設定切替デモ</title>
+</head>
+<body>
+    <h1>カメラと解像度を選択</h1>
+
+    <!-- カメラ選択 -->
+    <label for="cameraSelect">カメラを選択:</label>
+    <select id="cameraSelect"></select>
+
+    <!-- 解像度選択 -->
+    <label for="resolutionSelect">解像度を選択:</label>
+    <select id="resolutionSelect">
+        <option value="1280x720">720p</option>
+        <option value="1920x1080">1080p</option>
+        <option value="640x480">VGA</option>
+    </select>
+
+    <!-- カメラ映像を表示するためのvideo要素 -->
+    <video id="videoElement" width="640" height="480" autoplay></video>
+
+    <script>
+        let currentStream = null;  // 現在のストリーム
+
+        // 利用可能なカメラを取得し、選択肢を作成
+        navigator.mediaDevices.enumerateDevices()
+            .then(function(devices) {
+                const videoDevices = devices.filter(function(device) {
+                    return device.kind === 'videoinput';
+                });
+
+                const cameraSelect = document.getElementById('cameraSelect');
+
+                if (videoDevices.length > 0) {
+                    // カメラの選択肢を作成
+                    videoDevices.forEach(function(device) {
+                        const option = document.createElement('option');
+                        option.value = device.deviceId;
+                        option.textContent = device.label || `カメラ ${cameraSelect.length + 1}`;
+                        cameraSelect.appendChild(option);
+                    });
+
+                    // 最初のカメラを表示
+                    switchCamera(videoDevices[0].deviceId);
+                } else {
+                    alert("カメラが検出されませんでした。");
+                }
+
+                // カメラが選択されたときに切り替える
+                cameraSelect.addEventListener('change', function(event) {
+                    const deviceId = event.target.value;
+                    const resolution = document.getElementById('resolutionSelect').value;
+                    switchCamera(deviceId, resolution);
+                });
+
+                // 解像度が変更されたときにカメラを切り替える
+                document.getElementById('resolutionSelect').addEventListener('change', function() {
+                    const resolution = this.value;
+                    const deviceId = cameraSelect.value;
+                    switchCamera(deviceId, resolution);
+                });
+
+            })
+            .catch(function(error) {
+                console.error("デバイスのリスト取得に失敗しました: ", error);
+                alert("カメラのリストを取得できませんでした。");
+            });
+
+        // カメラを切り替える関数
+        function switchCamera(deviceId, resolution = '1280x720') {
+            // 既存のストリームがあれば停止する
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+
+            // 解像度の設定をパース
+            const [width, height] = resolution.split('x').map(Number);
+
+            // 新しいカメラに接続
+            navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    deviceId: deviceId, 
+                    width: { ideal: width },
+                    height: { ideal: height }
+                }
+            })
+            .then(function(stream) {
+                // 映像をvideo要素に表示
+                const video = document.getElementById('videoElement');
+                video.srcObject = stream;
+                currentStream = stream;  // 現在のストリームを保持
+            })
+            .catch(function(error) {
+                console.error("カメラにアクセスできません: ", error);
+                alert("選択したカメラにアクセスできませんでした。");
+            });
+        }
+    </script>
+</body>
+</html>
